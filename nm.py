@@ -8,6 +8,15 @@ import matplotlib.animation as animation
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from keras import Sequential
+from keras.layers import Conv2D, MaxPooling2D, BatchNormalization, Flatten, Dense, Dropout
+
+from keras.src.losses import sparse_categorical_crossentropy
+from keras.src.metrics.accuracy_metrics import accuracy
+
+from keras.optimizers import Adam
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, classification_report, roc_auc_score
+
 '''
 def banpassFilter(signal, lowcut=20, highcut=450, fs=2000, order=4):
     nyq = 0.5 * fs
@@ -23,6 +32,58 @@ def banpassFilter(signal, lowcut=20, highcut=450, fs=2000, order=4):
 datasetovi su oblika 8x8senzora + labela (klasa e [0,3])
 '''
 
+def makeModel():
+    model = Sequential()
+    
+    # Blok 1
+    model.add(Conv2D(32, (3,3), activation='relu',
+                    padding='same',
+                    input_shape=(8,8,1)))
+    model.add(BatchNormalization())
+    model.add(MaxPooling2D((2,2)))   # 8x8 → 4x4
+
+    # Blok 2
+    model.add(Conv2D(64, (3,3), activation='relu', padding='same'))
+    model.add(BatchNormalization())
+
+    model.add(Flatten())
+
+    model.add(Dense(64, activation='relu'))
+    model.add(Dropout(0.3)) #Prevencija preobucavanja
+
+    model.add(Dense(4, activation='softmax'))  # 4 klase
+    return model
+def performanseModela(model, ulazTest, izlazTest, num_classes=4):
+    # Predikcije
+    izlazPredProb = model.predict(ulazTest, verbose=0)   # shape (batch, 4)
+    izlazPred = np.argmax(izlazPredProb, axis=1)         # uzmi klasu sa max verovatnoćom
+
+    # Confusion Matrix
+    cm = confusion_matrix(izlazTest, izlazPred)
+    print("Konfuziona matrica:")
+    print(cm)
+
+    ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(num_classes)).plot()
+    plt.title("Konfuziona matrica")
+    plt.show()
+
+    # Classification report (Precision, Recall, F1 po klasi)
+    print("\nClassification report:")
+    print(classification_report(izlazTest, izlazPred, digits=4))
+
+    # Accuracy
+    ACC = np.mean(izlazPred == izlazTest)
+    print(f"Ukupna tacnost (Accuracy): {ACC:.4f}")
+
+    # ROC AUC (multi-class, one-vs-rest)
+    try:
+        from sklearn.preprocessing import label_binarize
+        izlazTestOneHot = label_binarize(izlazTest, classes=range(num_classes))
+        AUROC = roc_auc_score(izlazTestOneHot, izlazPredProb, average="macro", multi_class="ovr")
+        print(f"Macro ROC-AUC: {AUROC:.4f}")
+    except Exception as e:
+        print("Ne može se izračunati ROC-AUC:", e)
+
 data0 = pd.read_csv('emgSignaliKlasa0.CSV', header=None)
 data1 = pd.read_csv('emgSignaliKlasa1.CSV', header=None)
 data2 = pd.read_csv('emgSignaliKlasa2.CSV', header=None)
@@ -36,11 +97,20 @@ data_mix = data[ind, :]
 ulaz = data_mix[:, :-1]
 izlaz = data_mix[:, -1]
 
+
+
 ulaz_trening, ulaz_test, izlaz_trening, izlaz_test = train_test_split(ulaz, izlaz, test_size=0.2, shuffle=True, random_state=45, stratify=izlaz)
 
+scaler = StandardScaler()
+ulaz_trening = scaler.fit_transform(ulaz_trening)
+ulaz_test = scaler.transform(ulaz_test)
 
+ulaz_trening = ulaz_trening.reshape(-1, 8, 8, 1)
+ulaz_test = ulaz_test.reshape(-1, 8, 8, 1)
 
-print(data.shape)
+#print(data.shape) # (11678, 65)
+
+print(ulaz_trening.shape)
 
 '''
 print(data0.shape)
@@ -97,5 +167,12 @@ plt.legend()
 plt.show()
 '''
 
+model = makeModel()
 
+model.compile(optimizer='adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+
+model.fit(ulaz_trening, izlaz_trening, batch_size=64, epochs=100, verbose=1)
+
+performanseModela(model=model, ulazTest=ulaz_test, izlazTest=izlaz_test, num_classes=4)
+#accuracy = 0.9606
 # za CNN dimenzije(8, 8, 1)
