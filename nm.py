@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from keras import Sequential
+from keras.models import load_model
 from keras.layers import Conv2D, MaxPooling2D, BatchNormalization, Flatten, Dense, Dropout
 
 from keras.src.losses import sparse_categorical_crossentropy
@@ -49,7 +50,7 @@ def makeModel():
     model.add(Flatten())
 
     model.add(Dense(64, activation='relu'))
-    model.add(Dropout(0.3)) #Prevencija preobucavanja
+    model.add(Dropout(0.3))
 
     model.add(Dense(4, activation='softmax'))  # 4 klase
     return model
@@ -108,6 +109,9 @@ ulaz_test = scaler.transform(ulaz_test)
 ulaz_trening = ulaz_trening.reshape(-1, 8, 8, 1)
 ulaz_test = ulaz_test.reshape(-1, 8, 8, 1)
 
+ulaz = scaler.transform(ulaz)
+
+ulaz = ulaz.reshape(-1, 8, 8, 1)
 #print(data.shape) # (11678, 65)
 
 print(ulaz_trening.shape)
@@ -167,12 +171,46 @@ plt.legend()
 plt.show()
 '''
 
-model = makeModel()
+model = load_model("model.keras")
 
-model.compile(optimizer='adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+# model = makeModel()
 
-model.fit(ulaz_trening, izlaz_trening, batch_size=64, epochs=100, verbose=1)
+# model.compile(optimizer='adam',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
 
-performanseModela(model=model, ulazTest=ulaz_test, izlazTest=izlaz_test, num_classes=4)
+# history = model.fit(ulaz_trening, izlaz_trening, batch_size=64, epochs=100, verbose=1)
+
+# model.save("model.keras")
+
+#performanseModela(model=model, ulazTest=ulaz, izlazTest=izlaz, num_classes=4)
+
+# plt.figure()
+# plt.plot(history.history['accuracy'])
+# plt.xlabel('Epoha')
+# plt.ylabel('Preciznost')
+# plt.show()
+
+# plt.figure()
+# plt.plot(history.history['loss'])
+# plt.xlabel('Epoha')
+# plt.ylabel('Loss')
+# plt.legend(['Trening', 'Validacija'])
+# plt.title('Kriva obučavanja - Loss')
+# plt.show()
+
+# ypred = model.predict(ulaz_test)
+
+# ypred = np.argmax(ypred, axis=1)
+# cm = confusion_matrix(y_pred=ypred, y_true=izlaz_test)
+# ConfusionMatrixDisplay(cm).plot()
+# plt.show()
+
+# ypred = model.predict(ulaz_trening)
+
+# ypred = np.argmax(ypred, axis=1)
+# cm = confusion_matrix(y_pred=ypred, y_true=izlaz_trening)
+# ConfusionMatrixDisplay(cm).plot()
+# plt.show()
+
+model.summary()
 #accuracy = 0.9606
 # za CNN dimenzije(8, 8, 1)
