@@ -16,7 +16,7 @@ from keras.src.losses import sparse_categorical_crossentropy
 from keras.src.metrics.accuracy_metrics import accuracy
 
 from keras.optimizers import Adam
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, classification_report, roc_auc_score
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, classification_report, roc_auc_score, precision_score, recall_score, f1_score
 
 '''
 def banpassFilter(signal, lowcut=20, highcut=450, fs=2000, order=4):
@@ -32,6 +32,19 @@ def banpassFilter(signal, lowcut=20, highcut=450, fs=2000, order=4):
 '''
 datasetovi su oblika 8x8senzora + labela (klasa e [0,3])
 '''
+
+def prikazi_primere(ulaz, y_true, y_pred, indeksi, n=5):
+    plt.figure(figsize=(10, 4))
+    
+    for i in range(n):
+        idx = indeksi[i]
+        
+        plt.subplot(1, n, i+1)
+        plt.imshow(ulaz[idx].squeeze(), aspect='auto')
+        plt.title(f"T:{y_true[idx]} P:{y_pred[idx]}")
+        plt.axis('off')
+    
+    plt.show()
 
 def makeModel():
     model = Sequential()
@@ -75,6 +88,18 @@ def performanseModela(model, ulazTest, izlazTest, num_classes=4):
     # Accuracy
     ACC = np.mean(izlazPred == izlazTest)
     print(f"Ukupna tacnost (Accuracy): {ACC:.4f}")
+
+    # Precision
+    prec = precision_score(izlaz_test, izlazPred, average='macro')
+    print(f"Preciznost: {prec:.4f}")
+
+    # Recall
+    rec = recall_score(izlaz_test, izlazPred, average='macro')
+    print(f"Osetljivost: {rec:.4f}")
+
+    # F1
+    f1 = f1_score(izlaz_test, izlazPred, average='macro')
+    print(f"F1 skor: {f1}")
 
     # ROC AUC (multi-class, one-vs-rest)
     try:
@@ -142,6 +167,31 @@ plt.show()
 '''
 
 #prikaz prvih 8 uzastopnih trenutaka, umesto K ubaciti klasu
+def prikaziPrimer(signal, predicted, klasa):
+    signal_reshaped = signal.reshape(8, 8)  # (time, sensors)
+
+    fs = 200
+    dt = 1/fs  # 0.005 s
+
+    t = np.arange(8) * dt   # samo 8 vremenskih tačaka
+
+    plt.figure(figsize=(8,4))
+    plt.plot(t, signal_reshaped[:, 0])  # senzor 0 kroz 8 trenutaka
+    plt.title("EMG senzor 0 - 40ms segment")
+    plt.xlabel("Vreme [s]")
+    plt.ylabel("Amplituda")
+    plt.show()
+
+    plt.figure(figsize=(10,6))
+    for i in range(8):
+        plt.plot(t, signal_reshaped[:, i], label=f"Senzor {i}")
+
+    plt.xlabel("Vreme [s]")
+    plt.ylabel("Amplituda")
+    plt.title("8 senzora kroz 8 uzastopnih trenutaka (40ms) Klasa: " + str(klasa) + " Predicted: " + str(predicted))
+    plt.legend()
+    plt.show()
+    print("End")
 '''
 signal = dataK.iloc[0, :-1].values
 #label = data1.iloc[0, -1]
@@ -181,7 +231,7 @@ model = load_model("model.keras")
 
 # model.save("model.keras")
 
-#performanseModela(model=model, ulazTest=ulaz, izlazTest=izlaz, num_classes=4)
+# performanseModela(model=model, ulazTest=ulaz_test, izlazTest=izlaz_test, num_classes=4)
 
 # plt.figure()
 # plt.plot(history.history['accuracy'])
@@ -197,9 +247,9 @@ model = load_model("model.keras")
 # plt.title('Kriva obučavanja - Loss')
 # plt.show()
 
-# ypred = model.predict(ulaz_test)
+ypred = model.predict(ulaz_test)
 
-# ypred = np.argmax(ypred, axis=1)
+ypred = np.argmax(ypred, axis=1)
 # cm = confusion_matrix(y_pred=ypred, y_true=izlaz_test)
 # ConfusionMatrixDisplay(cm).plot()
 # plt.show()
@@ -211,6 +261,13 @@ model = load_model("model.keras")
 # ConfusionMatrixDisplay(cm).plot()
 # plt.show()
 
-model.summary()
+#model.summary()
+
+tacni_idx = np.where((ypred == izlaz_test) & (izlaz_test == 2))[0]
+netacni_idx = np.where((ypred != izlaz_test) & (izlaz_test == 1))[0]
+
+prikaziPrimer(ulaz_test[netacni_idx[0]], ypred[netacni_idx[0]], izlaz_test[netacni_idx[0]])
+
+
 #accuracy = 0.9606
 # za CNN dimenzije(8, 8, 1)
